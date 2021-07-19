@@ -46,5 +46,6 @@ Gutenberg download scripts were taken from the Project Gutenberg site.
 
 Some scripts in tools.py (the commented ones...) are from https://towardsdatascience.com/text-classification-using-word-similarity-2f0c5fc9f365
 
-I recommend you not download the Gutenberg corpus yourself (I'm not anymomre). Instead, there are a number of torrents. I'm using Gutenberg dammit from https://github.com/aparrish/gutenberg-dammit now.
+I recommend you not download the Gutenberg corpus yourself (I'm not anymomre). Instead, there are a number of torrents. There's also Gutenberg dammit from https://github.com/aparrish/gutenberg-dammit, which I'm using now.
+
 

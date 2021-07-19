@@ -2,11 +2,11 @@ import os
 import pickle
 
 
-verbPath = "verbs.pickle"
-nounPath = "nouns.pickle"
-adjPath = "adjs.pickle"
-readPath = "read.pickle"
-simsPath = "sims.pickle"
+verbPath = os.path.join("newFrequencies", "verbs.pickle")
+nounPath = os.path.join("newFrequencies", "nouns.pickle")
+adjPath = os.path.join("newFrequencies", "adjs.pickle")
+readPath = os.path.join("newFrequencies", "read.pickle")
+simsPath = os.path.join("newFrequencies", "sims.pickle")
 
 paths = ["verbs.pickle", "nouns.pickle", "adjs.pickle", "read.pickle"]
 

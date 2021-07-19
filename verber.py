@@ -11,7 +11,7 @@ import spacy
 import similar
 
 
-MAX_LEN = 2000000
+MAX_LEN = 100000
 animal = wn.synset("animal.n.01")
 person = wn.synset("person.n.01")
 location = wn.synset("location.n.01")
@@ -64,6 +64,9 @@ def getWords(doc, calcSim=True):
 def stripMeta(text):
     startKey = "*** START "
     startIdx = text.find(startKey)
+    if startIdx < 0:
+        return text
+
     lineEnd = text.find("\n", startIdx)
     text = text[lineEnd+1:]
 
@@ -73,6 +76,25 @@ def stripMeta(text):
     text = text[:endIdx]
 
     return text
+
+
+def chunkify(text):
+    ret = []
+
+    maxChunk = 50000
+
+    while len(text) > maxChunk:
+        breakidx = text.find("\n\n", maxChunk)
+        if breakidx < 0:
+            breakidx = text.find("\r\n\r\n", maxChunk)
+
+        if breakidx < 0:
+            break
+
+        ret.append(text[:breakidx])
+        text = text[breakidx:]
+
+    return ret + [text]
 
 def main(path):
     nlp = spacy.load("en_core_web_sm")
