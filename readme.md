@@ -1,6 +1,6 @@
 # English text frequency analysis
 
-This program will take text documents written in English, parse them to determine parts of speech, then order the nouns, verbs, and adjectives within it. From there, further analysis may be performed, such as specifying a text and identifying unusual words within that book, which are high in frequency in the book, but low in frequency in the full corpus. Includes a script to gently download .txt files from Project Gutenberg.
+This program will take text documents written in English, parse them to determine parts of speech, then order the nouns, verbs, and adjectives within it. From there, further analysis may be performed, such as specifying a text and identifying unusual words within that book, which are high in frequency in the book, but low in frequency in the full corpus.
 
 Requires a current, modern version of Python. Developed on Python 3.8.
 
@@ -14,15 +14,17 @@ Requires a current, modern version of Python. Developed on Python 3.8.
 
 4. Install the necessary libraries by running `pip install -r requirements.txt`
 
-5. Install libraries that spacy needs to run.
+  a. If installing torch causes problems (the process may get killed on systems with small amounts of memory), install it by itself with `pip install torch --no-cache-dir`
 
-  a. Run `pip install -m spacy download en_core_web_sm`
+5. Install libraries that spacy and nltk need to run.
 
-  b. Follow nltk's instructions or let me know if nltk complains at you.
+  a. `python install -m spacy download en_core_web_sm`
 
-6. Create helpful empty directories: output, temp, and texts
+  b. Install wordnet `python install_wordnet.py`
 
-7. If you want, deactivate the virtual environment by running `deactivate`
+6. Create helpful empty directories: `mkdir output temp texts`
+
+7. If you need to, deactivate the virtual environment by running `deactivate`
 
 ### To run
 
@@ -34,12 +36,27 @@ Requires a current, modern version of Python. Developed on Python 3.8.
 
   b. Sample command with default directories `python unusual.py frequencies/ texts/<path> -t temp -o output texts/<PATH TO BOOK>`
 
-Having a temp directory specified will save time by not rerunning the text when there's no changes to the book frequencies.
+  c. `python unusual.py -h` to see the help.
+
+Having a temp directory specified will save time by not rerunning the text when there's no changes to the book.
 
 If there's an output directory, it will write the lists to the directory. Otherwise it'll print them to screen.
 
 You can combine the flags for the different lists it will generate: eg -n for just nouns; -nv for nouns and verbs. By default it will run all 3. 
 
+### To run the bot. 
+
+1. Rename .env-shell to .env. 
+
+2. Fill in the Discord token with your bot token in .env. 
+  
+  a. Follow Discord's instructions to generate a bot token if you don't have one.
+
+3. If necessary, change the directories in .env.
+
+4. NEVER COMMIT YOUR .ENV FILE WITH YOUR DISCORD TOKEN. Keep it a secret.
+
+5. Run the bot with `python -m bot`
 
 ###Credits
 Gutenberg download scripts were taken from the Project Gutenberg site.

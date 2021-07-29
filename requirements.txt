@@ -10,8 +10,6 @@ contextvars==2.4
 cymem==2.0.5
 Cython==0.29.23
 discord.py==1.7.3
-en-core-web-sm==3.0.0
-en-core-web-trf==3.0.0
 filelock==3.0.12
 huggingface-hub==0.0.8
 idna==2.10

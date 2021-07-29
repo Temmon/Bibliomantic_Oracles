@@ -4,6 +4,7 @@ import os
 import requests
 import hashlib
 import itertools
+import csv
 
 import argparse
 import pathlib
@@ -11,6 +12,7 @@ import pathlib
 from collections import Counter
 from tabulate import tabulate
 from freq import Frequency
+import nounCategory
 
 import pickler
 
@@ -23,7 +25,11 @@ parser.add_argument('frequency_dir', type=pathlib.Path, help="Path to folder con
 parser.add_argument('book', type=pathlib.Path, help="Path to book to analyze")
 parser.add_argument('--output', '-o', default="", type=pathlib.Path, help="Path to folder to store human readable unusual words.")
 parser.add_argument('--temp', '-t', default="", type=pathlib.Path, help="Path to folder to store temporary information about book frequency.")
-parser.add_argument('--bookDir', action=store_true, default=False, help="If true, will analyze all files in the specified book directory")
+parser.add_argument('--bookDir', action='store_true', default=False, help="If true, will analyze all files in the specified book directory")
+parser.add_argument('--flat', '-f', action='store_true', default=False, help="Save the output as a flat list, rather than a table.")
+parser.add_argument('--abstract', action='store_true', default=False, help="Only save abstract nouns.")
+parser.add_argument('--physical', action='store_true', default=False, help="Only save nouns that are physical objects.")
+parser.add_argument('--strict', action='store_true', default=False, help="If abstract or physical are set, only select nouns that meet that category and not the other one.")
 
 class ParseError(Exception):
     def __init__(self, message):
@@ -44,10 +50,10 @@ class Unusual():
         m.update(self.bookPath.encode())
         self.bookHash = m.hexdigest()
 
-
-
     def hasTempFiles(self):
-        return self.tempDir and os.path.exists(os.path.join(self.tempDir, self.bookHash))
+        if not self.tempDir or self.tempDir.name == ".":
+            return False
+        return os.path.exists(os.path.join(self.tempDir, self.bookHash))
 
     def run(self):
 
@@ -63,7 +69,7 @@ class Unusual():
         ret = None
 
         if self.runNouns:
-            ret = self.save(self.compare(self.allNouns, self.frequencies.nouns), "nouns")
+            ret = self.save(self.compare(self.allNouns, self.frequencies.nouns, True), "nouns")
         if self.runVerbs:
             ret = self.save(self.compare(self.allVerbs, self.frequencies.verbs), "verbs")
         if self.runAdjs:
@@ -99,14 +105,11 @@ class Unusual():
 
             self.frequencies.update(*verber.getWords(doc, False))
 
-        if self.tempDir and self.tempDir != ".":
+        if self.tempDir.name and self.tempDir.name != ".":
             self.outputTemp()
 
 
-    def compare(self, allWords, bookWords):
-        simpleCutoff = allWords.most_common(int(len(allWords) * .01))[-1][1]
-
-
+    def compare(self, allWords, bookWords, checkCategories=False):
         allCount = sum([c[1] for c in allWords.most_common(1000)])
         bookCount = sum([c[1] for c in bookWords.most_common(1000)])
  
@@ -121,9 +124,17 @@ class Unusual():
         for word in bookWords.most_common():
             word = word[0]
             bookCheck = bookWords[word]
-
-            #if bookCheck < 4:
-            #    continue
+            if checkCategories:
+                if self.abstract: 
+                    if not nounCategory.checkAbstract(word):
+                        continue
+                    if self.strict and nounCategory.checkObject(word):
+                        continue
+                if self.physical:
+                    if not nounCategory.checkObject(word):
+                        continue
+                    if self.strict and nounCategory.checkAbstract(word):
+                        continue
 
             if word not in allWords:
                 unusual.append((word, bookCheck * .0001))
@@ -155,9 +166,18 @@ class UnusualBot(Unusual):
         self.runAdjs  = False
         self.bookPath = args.bookPath
         self.freqPath = args.freqPath
-        self.tempDir = args.tempDir
+        self.tempDir = pathlib.Path(args.tempDir)
         self.outputDir = None
         self.mode = args.mode
+
+        self.command = args.command
+
+        self.flat = False
+
+        self.abstract = False
+        self.physical = False
+
+        self.strict = False
 
         if args.pos == "n":
             self.runNouns = True
@@ -182,17 +202,16 @@ class UnusualBot(Unusual):
         return response.text
 
     def save(self, res, name):
+        ret =  "Results for: " + " ".join(self.command)
+
         if self.mode == "unusual":
-            return "```" + "\n".join(res.lists[1][:self.count+1]) + "```"
+            return ret + "\n```" + "\n".join(res.lists[1][:self.count+1]) + "```"
 
         if self.mode == "top":
-            return "```" + "\n".join(res.lists[0][:self.count+1]) + "```"
+            return ret + "\n```" + "\n".join(res.lists[0][:self.count+1]) + "```"
 
         if self.mode == "percentage":
-            return "```" + "\n".join(res.lists[2][:self.count+1]) + "```"
-
-
-        #return "```" + str(res.prettify(self.count)) + "```"
+            return ret + "\n```" + "\n".join(res.lists[2][:self.count+1]) + "```"
 
 
 class UnusualCmd(Unusual):
@@ -204,10 +223,17 @@ class UnusualCmd(Unusual):
         self.freqPath = args.frequency_dir
         self.outputDir = args.output
         self.tempDir = args.temp
-        self.cumu = args.cumulativeFile
+
+        self.bookDir = args.bookDir
 
         self.bookPath = self.book.name
         self.bookName = pathlib.Path(self.bookPath).stem
+        self.flat = args.flat
+
+        self.abstract = args.abstract
+        self.physical = args.physical
+
+        self.strict = args.strict
 
         if not any([self.runNouns, self.runAdjs, self.runVerbs]):
             self.runVerbs = True
@@ -230,7 +256,7 @@ class UnusualCmd(Unusual):
         if not os.path.exists(os.path.join(self.outputDir, self.bookName)):
             os.mkdir(os.path.join(self.outputDir, self.bookName))        
 
-        res.write(self.count, os.path.join(self.outputDir, self.bookName, name + ".txt"))
+        res.write(self.count, os.path.join(self.outputDir, self.bookName, name + ".txt"), self.flat)
 
 
 
@@ -242,15 +268,27 @@ class Results():
 
     def prettify(self, count):
         data = itertools.zip_longest(*[l[:count] for l in self.lists])
-        self.table = tabulate(data, headers=self.headers)
+        self.table = tabulate(data, headers=self.headers, tablefmt="tsv")
 
         return self.table
 
-    def write(self, count, outPath):
+    def write(self, count, outPath, flat=False):
+        if flat:
+            self.writeflat(count, outPath)
+            return
+
         if not self.table:
             self.prettify(count)
         with open(outPath, "w") as outFile:
             outFile.write(self.table)
+
+    def writeflat(self, count, outPath):
+        ret = set([])
+        for l in self.lists:
+            ret.update(l[:count])
+
+        with open(outPath, "w") as outFile:
+            outFile.write("\n".join(ret))
 
     def print(self, count):
         if not self.table:
@@ -260,5 +298,13 @@ class Results():
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    UnusualCmd(args).run()
+    cmd = UnusualCmd(args)
+    if args.bookDir:
+        d = args.book
+        for f in os.listdir(d):
+            cmd.book = os.path.join(args.book, f)
+            print("Running: ", str(cmd.book))
+            cmd.run()
+    else:
+        cmd.run()
 

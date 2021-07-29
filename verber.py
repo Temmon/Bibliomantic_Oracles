@@ -4,30 +4,13 @@ import pickler
 
 from collections import Counter
 
-from nltk.corpus import wordnet as wn
-from nltk.corpus import wordnet_ic
+#from nltk.corpus import wordnet_ic
 import spacy
 
 import similar
 
 
 MAX_LEN = 100000
-animal = wn.synset("animal.n.01")
-person = wn.synset("person.n.01")
-location = wn.synset("location.n.01")
-brown_ic = wordnet_ic.ic('ic-brown.dat')
-
-
-def calcSimilarity(syn, test, pos=wn.NOUN):
-    return syn.res_similarity(test, brown_ic)
-
-def checkCategories(lemma, pos=wn.NOUN):
-    ret = []
-    for syn in wn.synsets(lemma, pos):
-        ret.append(similar.Similarity(lemma, syn.name(), 
-            calcSimilarity(syn, animal), calcSimilarity(syn, person), calcSimilarity(syn, location)))
-    return ret
-
 
 def getWords(doc, calcSim=True):
     verbs = Counter()
@@ -50,10 +33,6 @@ def getWords(doc, calcSim=True):
         elif token.pos_ == "NOUN":
             if lemma in blacklist:
                 continue
-
-            if calcSim and lemma not in nouns:
-                s = checkCategories(lemma)
-                sims += s
 
             nouns[lemma] += 1
         elif token.pos_ == "ADJ":

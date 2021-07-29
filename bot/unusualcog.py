@@ -51,13 +51,14 @@ class Unusual(commands.Cog):
 
             c.mode = mode
 
+            c.command = args
+
             u = UnusualBot(c)
             return u.run()
         except Exception as ex:
             print(f"Error parsing book: {ex}")
             traceback.print_tb(ex.__traceback__)
             return "Ran into an unexpected problem. Talk to Temmon, especially if it keeps happening."
-
 
     @commands.command(name="top")
     async def top(self, ctx, *args):
