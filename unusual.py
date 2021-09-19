@@ -6,7 +6,6 @@ import hashlib
 import itertools
 import csv
 
-import argparse
 import pathlib
 
 from collections import Counter
@@ -15,21 +14,7 @@ from freq import Frequency
 import nounCategory
 
 import pickler
-
-parser = argparse.ArgumentParser(description='Find the top unusual words in a book.')
-parser.add_argument('--count', '-c', type=int, help="Number of results in each list", default=10)
-parser.add_argument('-n', action='store_true', help="Analyze nouns.")
-parser.add_argument('-v', action='store_true', help="Analyze verbs.")
-parser.add_argument('-a', action='store_true', help="Analyze adjectives.")
-parser.add_argument('frequency_dir', type=pathlib.Path, help="Path to folder containing corpus frequency information.")
-parser.add_argument('book', type=pathlib.Path, help="Path to book to analyze")
-parser.add_argument('--output', '-o', default="", type=pathlib.Path, help="Path to folder to store human readable unusual words.")
-parser.add_argument('--temp', '-t', default="", type=pathlib.Path, help="Path to folder to store temporary information about book frequency.")
-parser.add_argument('--bookDir', action='store_true', default=False, help="If true, will analyze all files in the specified book directory")
-parser.add_argument('--flat', '-f', action='store_true', default=False, help="Save the output as a flat list, rather than a table.")
-parser.add_argument('--abstract', action='store_true', default=False, help="Only save abstract nouns.")
-parser.add_argument('--physical', action='store_true', default=False, help="Only save nouns that are physical objects.")
-parser.add_argument('--strict', action='store_true', default=False, help="If abstract or physical are set, only select nouns that meet that category and not the other one.")
+import cutupargs
 
 class ParseError(Exception):
     def __init__(self, message):
@@ -56,7 +41,6 @@ class Unusual():
         return os.path.exists(os.path.join(self.tempDir, self.bookHash))
 
     def run(self):
-
         #One of these needs to be run before compare can be run.
         try:
             if self.hasTempFiles():
@@ -66,10 +50,18 @@ class Unusual():
         except ParseError as err:
             return err.message
 
+        #print(len(self.frequencies.nouns))
+
         ret = None
 
         if self.runNouns:
-            ret = self.save(self.compare(self.allNouns, self.frequencies.nouns, True), "nouns")
+            ret = self.save(self.compare(self.allNouns, self.frequencies.nouns), "nouns")
+        if self.abstract:
+            ret = self.save(self.compare(self.allNouns, self.frequencies.nouns, abstract=True), "abstract")
+        if self.physical:
+            ret = self.save(self.compare(self.allNouns, self.frequencies.nouns, physical=True), "physical")
+        if self.people:
+            ret = self.save(self.compare(self.allNouns, self.frequencies.nouns, people=True), "people")
         if self.runVerbs:
             ret = self.save(self.compare(self.allVerbs, self.frequencies.verbs), "verbs")
         if self.runAdjs:
@@ -78,6 +70,8 @@ class Unusual():
         return ret
 
     def loadBookFiles(self):
+        if self.frequencies:
+            oldFrequencies = self.frequencies
         self.frequencies = pickler.loadPickleFile(os.path.join(self.tempDir, self.bookHash), Frequency)
 
     def parseBook(self):
@@ -109,7 +103,7 @@ class Unusual():
             self.outputTemp()
 
 
-    def compare(self, allWords, bookWords, checkCategories=False):
+    def compare(self, allWords, bookWords, abstract=False, physical=False, people=False):
         allCount = sum([c[1] for c in allWords.most_common(1000)])
         bookCount = sum([c[1] for c in bookWords.most_common(1000)])
  
@@ -120,20 +114,24 @@ class Unusual():
 
         simple = []
         unusual = []
+        tops = []
 
         for word in bookWords.most_common():
             word = word[0]
             bookCheck = bookWords[word]
-            if checkCategories:
-                if self.abstract: 
+            if abstract or physical or people:
+                if abstract: 
                     if not nounCategory.checkAbstract(word):
                         continue
                     if self.strict and nounCategory.checkObject(word):
                         continue
-                if self.physical:
+                if physical:
                     if not nounCategory.checkObject(word):
                         continue
                     if self.strict and nounCategory.checkAbstract(word):
+                        continue
+                if people:
+                    if not nounCategory.checkPerson(word):
                         continue
 
             if word not in allWords:
@@ -147,10 +145,12 @@ class Unusual():
                 if check < simpleCutoff:
                     simple.append(word)
 
+            tops.append(word)
+
         unusual = sorted(unusual, key=lambda u: u[1], reverse=True)
         unusual = [u[0] for u in unusual]
 
-        tops = [c[0] for c in bookWords.most_common()]
+        #tops = [c[0] for c in bookWords.most_common()]
         res = Results([tops, simple, unusual], ["Top", "Count1", "Percentage1"])
 
         return res
@@ -161,9 +161,9 @@ class Unusual():
 
 class UnusualBot(Unusual):
     def __init__(self, args):
-        self.runNouns = False
-        self.runVerbs = False
-        self.runAdjs  = False
+        self.runNouns = args.nouns
+        self.runVerbs = args.verbs
+        self.runAdjs = args.adjectives
         self.bookPath = args.bookPath
         self.freqPath = args.freqPath
         self.tempDir = pathlib.Path(args.tempDir)
@@ -174,17 +174,11 @@ class UnusualBot(Unusual):
 
         self.flat = False
 
-        self.abstract = False
-        self.physical = False
+        self.abstract = args.abstract
+        self.physical = args.physical
+        self.people = args.people
 
-        self.strict = False
-
-        if args.pos == "n":
-            self.runNouns = True
-        elif args.pos == "v":
-            self.runVerbs = True
-        elif args.pos == "a":
-            self.runAdjs = True
+        self.strict = args.strict
 
         super().__init__(args)
 
@@ -205,13 +199,13 @@ class UnusualBot(Unusual):
         ret =  "Results for: " + " ".join(self.command)
 
         if self.mode == "unusual":
-            return ret + "\n```" + "\n".join(res.lists[1][:self.count+1]) + "```"
+            return ret + "\n```\n" + "\n".join(res.lists[1][:self.count]) + "```"
 
         if self.mode == "top":
-            return ret + "\n```" + "\n".join(res.lists[0][:self.count+1]) + "```"
+            return ret + "\n```\n" + "\n".join(res.lists[0][:self.count]) + "```"
 
         if self.mode == "percentage":
-            return ret + "\n```" + "\n".join(res.lists[2][:self.count+1]) + "```"
+            return ret + "\n```\n" + "\n".join(res.lists[2][:self.count]) + "```"
 
 
 class UnusualCmd(Unusual):
@@ -230,17 +224,28 @@ class UnusualCmd(Unusual):
         self.bookName = pathlib.Path(self.bookPath).stem
         self.flat = args.flat
 
-        self.abstract = args.abstract
-        self.physical = args.physical
-
-        self.strict = args.strict
+        self.strict = True
 
         if not any([self.runNouns, self.runAdjs, self.runVerbs]):
             self.runVerbs = True
             self.runAdjs = True
             self.runNouns = True    
 
+
+        self.abstract = self.runNouns
+        self.physical = self.runNouns
+        self.people = self.runNouns
+
         super().__init__(args)
+
+    def setBook(self, book):
+        self.book = book
+        self.bookPath = self.book.name
+        #self.bookName = pathlib.Path(self.bookPath).stem
+
+        m = hashlib.md5()
+        m.update(self.bookPath.encode())
+        self.bookHash = m.hexdigest()
 
 
     def loadText(self):
@@ -296,13 +301,28 @@ class Results():
         print(self.table)
 
 
+def createParser():
+    parser = cutupargs.getParser()
+    parser.add_argument('frequency_dir', type=pathlib.Path, help="Path to folder containing corpus frequency information.")
+    parser.add_argument('book', type=pathlib.Path, help="Path to book to analyze")
+    parser.add_argument('--output', '-o', default="", type=pathlib.Path, help="Path to folder to store human readable unusual words.")
+    parser.add_argument('--temp', '-t', default="", type=pathlib.Path, help="Path to folder to store temporary information about book frequency.")
+    parser.add_argument('--bookDir', action='store_true', default=False, help="If true, will analyze all files in the specified book directory")
+    parser.add_argument('--flat', '-f', action='store_true', default=False, help="Save the output as a flat list, rather than a table.")
+    parser.add_argument('-n', action='store_true', help="Analyze nouns.")
+    parser.add_argument('-v', action='store_true', help="Analyze verbs.")
+    parser.add_argument('-a', action='store_true', help="Analyze adjectives.")
+
+    return parser
+
+
 if __name__ == "__main__":
-    args = parser.parse_args()
+    args = createParser().parse_args()
     cmd = UnusualCmd(args)
     if args.bookDir:
         d = args.book
         for f in os.listdir(d):
-            cmd.book = os.path.join(args.book, f)
+            cmd.setBook(pathlib.Path(os.path.join(args.book, f)))
             print("Running: ", str(cmd.book))
             cmd.run()
     else:

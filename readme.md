@@ -34,7 +34,7 @@ Requires a current, modern version of Python. Developed on Python 3.8.
 
   a. It has detailed help instructions. I made empty output and temp directories to use if you want them.
 
-  b. Sample command with default directories `python unusual.py frequencies/ texts/<path> -t temp -o output texts/<PATH TO BOOK>`
+  b. Sample command with default directories `python unusual.py frequencies/ texts/<path> -t temp -o output`
 
   c. `python unusual.py -h` to see the help.
 

@@ -14,7 +14,7 @@ def getToken():
     return token
 
 
-bot = commands.Bot(command_prefix=['bib.'])
+bot = commands.Bot(command_prefix=['bib.', 'Bib.'], help_command=None)
 bot.add_cog(unusualcog.Unusual(bot))
 
 
